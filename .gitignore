@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+archive/
+.env/
+.vscode/
+archive/*
+*.xlsx
+*.txt
+
