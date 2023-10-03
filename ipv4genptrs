@@ -7,7 +7,8 @@ def get_range(cidr_notation):
     try:
         # Parse the CIDR notation to get the network object
         network = ipaddress.IPv4Network(cidr_notation, strict=False)
-        first_usable_ip = network.network_address + 1
+        #first_usable_ip = network.network_address + 1  # this is *usable*, but misses gateway/router in our implementation
+        first_usable_ip = network.network_address 
         last_usable_ip = network.broadcast_address - 1
 
         return str(first_usable_ip), str(last_usable_ip)
@@ -44,9 +45,10 @@ def make_gens(snlist):
 
 def sanitize_snname(cidr, snname):
     # using the first 3 octets of the cidr, prepend the standardized wildcard designation for the name.
-    newsnname = '$.'
+    #newsnname = '$.'
     octetlist = cidr.split('.')
-    newsnname += octetlist[2] + '.' + octetlist[1] + '.' + octetlist[0] + '.' + snname[8:] # assuming that the given name includes '$-$-$-$.'
+    #newsnname += octetlist[2] + '.' + octetlist[1] + '.' + octetlist[0] + '.' + snname[8:] # assuming that the given name includes '$-$-$-$.'
+    newsnname = octetlist[0] + '-' + octetlist[1] + '-' + octetlist[2] + '-$' '.' + snname[8:] # assuming that the given name includes '$-$-$-$.'
     # the PTR name/directive MUST end with a '.', so...
     if newsnname[-1] != '.':
         newsnname += '.'
