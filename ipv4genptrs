@@ -23,7 +23,9 @@ def build_list():
     rows = sheet.max_row
     for r in range(1, rows+1):
         sncidr = sheet.cell(r,1).value
+        sncidr = sncidr.strip()
         snname = sheet.cell(r,2).value
+        snname = snname.strip()
         row = [sncidr, snname]
         snrow.append(row)
 

@@ -7,3 +7,4 @@ It wasn't _difficult_ to assemble the zonefile entries by hand, but it was time-
 
 Manually assembling the zonefile additions isn't scalable, so this script is the result. It wants a .xlsx arranged with the CIDR in column A, and the PTR resolution template, prepended with '$-$-$-$.', in column B. It'll then output a .txt files with the $GENERATE directives for the provided CIDRs, ready for copy/paste into the target zonefiles.
 
+2023-11-09: Leading/trailing spaces for the CIDR definition (column A) breaks the parsing. Easy fix with .strip()
