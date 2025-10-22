@@ -9,3 +9,4 @@ Manually assembling the zonefile additions isn't scalable, so this script is the
 
 2023-11-09: Leading/trailing spaces for the CIDR definition (column A) breaks the parsing. Easy fix with .strip()
 2024-12-03: add getrange - a simple dump of the IP address range, given a CIDR.
+2025-10-22: Experimenting with Copilot to refactor the script to allow for /23 (or larger) subnets. 

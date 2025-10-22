@@ -7,4 +7,4 @@ archive/
 archive/*
 *.xlsx
 *.txt
-
+.github/*

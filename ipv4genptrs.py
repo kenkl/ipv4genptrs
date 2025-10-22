@@ -15,7 +15,7 @@ def get_range(cidr_notation):
     except ValueError as e:
         return str(e)
 
-def build_list():
+def build_list(workbook):
     '''Build/return a list with the contents of the entire spreadsheet (first/named tab only)'''
     wb=openpyxl.load_workbook(workbook)
     sheet=wb.worksheets[0] # we're only going to pull from the first sheet in the workbook, regardless of its name
@@ -38,19 +38,42 @@ def build_list():
     return flist
 
 def make_gens(snlist):
-    # snlist is the basic list with CIDR,subnet name. Let's append the $GENERATE preamble, based on IP ranges for the CIDR to the list
+    # snlist is the basic list with CIDR,subnet name. For CIDRs that span multiple /24s (different 3rd octet)
+    # generate one $GENERATE line per /24. We append a list of gen-strings (and their 3rd-octet) at index 2.
     for r in range(len(snlist)):
         first, last = get_range(snlist[r][0])
-        genstring = f'$GENERATE {str(first).split(".")[3]}-{str(last).split(".")[3]}     $    PTR    '
-        snlist[r].append(genstring)
+        fparts = str(first).split('.')
+        lparts = str(last).split('.')
+        f3 = int(fparts[2])
+        f4 = int(fparts[3])
+        l3 = int(lparts[2])
+        l4 = int(lparts[3])
+
+        genlist = []
+        # iterate over every 3rd-octet spanned by the range
+        for third in range(f3, l3 + 1):
+            if third == f3:
+                low = f4
+            else:
+                low = 0
+            if third == l3:
+                high = l4
+            else:
+                high = 255
+            # Leave the PTR name part out for now; it will be appended in make_copypasta after sanitizing the name
+            gen = f'$GENERATE {low}-{high}     $    PTR    '
+            genlist.append((third, gen))
+
+        snlist[r].append(genlist)
     return snlist
 
 def sanitize_snname(cidr, snname):
     # using the first 3 octets of the cidr, prepend the standardized wildcard designation for the name.
     #newsnname = '$.'
     octetlist = cidr.split('.')
-    #newsnname += octetlist[2] + '.' + octetlist[1] + '.' + octetlist[0] + '.' + snname[8:] # assuming that the given name includes '$-$-$-$.'
-    newsnname = octetlist[0] + '-' + octetlist[1] + '-' + octetlist[2] + '-$' '.' + snname[8:] # assuming that the given name includes '$-$-$-$.'
+    # newsnname: e.g. '192-168-0-$.example.com'
+    # assume incoming snname includes a leading '$-$-$-$.' prefix; keep the remainder after that prefix
+    newsnname = octetlist[0] + '-' + octetlist[1] + '-' + octetlist[2] + '-$.' + snname[8:]
     # the PTR name/directive MUST end with a '.', so...
     if newsnname[-1] != '.':
         newsnname += '.'
@@ -61,7 +84,17 @@ def add_snname(snlist):
     # like: $.47.168.192.kenkl.org
     for r in range(len(snlist)):
         snname = snlist[r][1]
-        snlist[r].append(sanitize_snname(snlist[r][0], snname))
+        # if make_gens created multiple generate entries, sanitize a name for each third-octet
+        if isinstance(snlist[r][2], list):
+            names = []
+            # each entry in snlist[r][2] is a tuple (third_octet, genstring)
+            for third, _gen in snlist[r][2]:
+                # construct a /24-like cidr for the specific third octet so sanitize_snname picks the correct octet
+                base_cidr = '.'.join(snlist[r][0].split('.')[:2] + [str(third), '0'])
+                names.append(sanitize_snname(base_cidr, snname))
+            snlist[r].append(names)
+        else:
+            snlist[r].append(sanitize_snname(snlist[r][0], snname))
 
     return snlist
 
@@ -70,15 +103,24 @@ def make_copypasta(snlist):
     cp = open(outfile, 'w')
     cp.write('# some tasty copypasta for whichever zonefiles get these.\n\n')
     for r in range(len(snlist)):
-        line = snlist[r][2] + snlist[r][3] + '\n'
-        cp.write(line)
+        gens = snlist[r][2]
+        names = snlist[r][3]
+        # gens may be a single string (old style) or a list of (third, gen) tuples
+        if isinstance(gens, list):
+            # names is a list of sanitized names aligned with gens
+            for i, (third, gen) in enumerate(gens):
+                line = gen + names[i] + '\n'
+                cp.write(line)
+        else:
+            line = gens + names + '\n'
+            cp.write(line)
     cp.close()
     print(f"{outfile} has been assembled for copypasta fun-times. Enjoy!")
 
 def main():
     # tying together all the bits to do A Thing™
     # First, let's build a list of the CIDRs and wildcard assignments, based on the .xlsx named up top
-    snlist = build_list()
+    snlist = build_list(workbook)
     # For each row, let's calculate the IPs for the CIDR, and append a list item for each with the $GENERATE prefix
     snlist = make_gens(snlist)
     # Next, let's spin through the rows again to tack on the subnet name. 
